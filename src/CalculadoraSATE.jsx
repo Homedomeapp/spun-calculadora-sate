@@ -38,6 +38,7 @@ const CalculadoraSATE = () => {
     horizonte: '',
     tieneEmpresa: '',
     esProfesional: false,
+    aceptaPrivacidad: false,
     // Campos para profesionales
     nombreEmpresa: '',
     web: '',
@@ -53,6 +54,10 @@ const CalculadoraSATE = () => {
   const [showResults, setShowResults] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
+  
+  // Modal de confirmación de contacto
+  const [showContactConfirm, setShowContactConfirm] = useState(false);
+  const [contactType, setContactType] = useState(null); // 'demanda' | 'oferta'
 
   // ============================================
   // CONSTANTES DE CÁLCULO (Precios Madrid 2025)
@@ -396,6 +401,37 @@ const CalculadoraSATE = () => {
   };
 
   // ============================================
+  // SOLICITUD DE CONTACTO (botones CTA finales)
+  // ============================================
+  
+  const solicitarContacto = async (tipo) => {
+    setContactType(tipo);
+    
+    // Enviar evento a Make para actualizar el lead
+    try {
+      await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tipoEvento: 'SOLICITUD_CONTACTO',
+          tipoSolicitud: tipo, // 'demanda_quiere_ofertas' o 'oferta_quiere_proyectos'
+          email: leadData.email,
+          nombre: leadData.nombre,
+          telefono: leadData.telefono || '',
+          tipoUsuario: leadData.esProfesional ? 'OFERTA' : 'DEMANDA',
+          codigoPostal: buildingData.codigoPostal,
+          costeEstimadoTotal: resultados?.costeConIVA || 0,
+          timestamp: new Date().toISOString()
+        })
+      });
+    } catch (error) {
+      console.error('Error enviando solicitud de contacto:', error);
+    }
+    
+    setShowContactConfirm(true);
+  };
+
+  // ============================================
   // VALIDACIONES
   // ============================================
   
@@ -412,13 +448,16 @@ const CalculadoraSATE = () => {
   };
   
   const isLeadFormValid = () => {
-    const baseValid = leadData.nombre && leadData.email && leadData.rol;
+    // Validación base: nombre, email y aceptación de privacidad
+    const baseValid = leadData.nombre && leadData.email && leadData.aceptaPrivacidad;
     
     if (leadData.esProfesional) {
+      // Profesionales: nombre empresa y tipo empresa
       return baseValid && leadData.nombreEmpresa && leadData.tipoEmpresa;
     }
     
-    return baseValid && leadData.numEdificios && leadData.horizonte && leadData.tieneEmpresa;
+    // Demanda: rol, edificios, horizonte, tiene empresa
+    return baseValid && leadData.rol && leadData.numEdificios && leadData.horizonte && leadData.tieneEmpresa;
   };
 
   // ============================================
@@ -450,6 +489,15 @@ const CalculadoraSATE = () => {
       <div className="relative max-w-4xl mx-auto px-4 py-8 sm:py-12">
         {/* Header */}
         <header className="text-center mb-10 sm:mb-14">
+          {/* Logo SPUN */}
+          <div className="flex justify-center mb-6">
+            <img 
+              src="/logo-spun.png" 
+              alt="SPUN" 
+              className="h-12 sm:h-14 w-auto"
+            />
+          </div>
+          
           <div className="inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-4 py-1.5 mb-6">
             <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
             <span className="text-emerald-400 text-sm font-medium tracking-wide">Madrid 2025 – Precios orientativos</span>
@@ -967,6 +1015,44 @@ const CalculadoraSATE = () => {
                   </div>
                 )}
                 
+                {/* Checkbox política de privacidad */}
+                <div className="pt-2">
+                  <label className="flex items-start gap-3 cursor-pointer group">
+                    <div className="relative flex items-center justify-center mt-0.5">
+                      <input
+                        type="checkbox"
+                        checked={leadData.aceptaPrivacidad}
+                        onChange={(e) => setLeadData({...leadData, aceptaPrivacidad: e.target.checked})}
+                        className="sr-only"
+                      />
+                      <div className={`w-5 h-5 rounded border-2 transition-all flex items-center justify-center ${
+                        leadData.aceptaPrivacidad 
+                          ? 'bg-emerald-500 border-emerald-500' 
+                          : 'border-slate-600 group-hover:border-slate-500'
+                      }`}>
+                        {leadData.aceptaPrivacidad && (
+                          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-sm text-slate-400 group-hover:text-slate-300 transition-colors">
+                      Acepto la{' '}
+                      <a 
+                        href="https://spun.es/politica-de-privacidad" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-emerald-400 hover:text-emerald-300 underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        política de privacidad
+                      </a>
+                      {' '}y consiento el tratamiento de mis datos para recibir información sobre rehabilitación energética.
+                    </span>
+                  </label>
+                </div>
+                
                 {/* Botón enviar */}
                 <div className="pt-4">
                   <button
@@ -1140,35 +1226,61 @@ const CalculadoraSATE = () => {
               </div>
               
               {/* CTA final según tipo de usuario */}
-              <div className="bg-gradient-to-br from-emerald-600/20 to-emerald-500/10 border border-emerald-500/30 rounded-2xl p-6 sm:p-8 text-center">
-                {leadData.esProfesional ? (
-                  <>
-                    <h3 className="text-xl font-semibold mb-3">¿Quieres recibir proyectos similares?</h3>
-                    <p className="text-slate-400 mb-6 max-w-md mx-auto">
-                      Únete a la red SPUN de profesionales verificados y conecta con comunidades que buscan empresas especializadas en rehabilitación energética.
-                    </p>
-                    <button className="px-8 py-4 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-semibold rounded-xl transition-all shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 inline-flex items-center gap-2">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                      </svg>
-                      Quiero unirme a la red SPUN
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <h3 className="text-xl font-semibold mb-3">¿Quieres recibir ofertas de empresas verificadas?</h3>
-                    <p className="text-slate-400 mb-6 max-w-md mx-auto">
-                      SPUN puede conectarte con empresas especializadas en SATE verificadas que trabajen en tu zona, sin compromiso.
-                    </p>
-                    <button className="px-8 py-4 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-semibold rounded-xl transition-all shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 inline-flex items-center gap-2">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                      </svg>
-                      Quiero que me contacten empresas verificadas
-                    </button>
-                  </>
-                )}
-              </div>
+              {!showContactConfirm ? (
+                <div className="bg-gradient-to-br from-emerald-600/20 to-emerald-500/10 border border-emerald-500/30 rounded-2xl p-6 sm:p-8 text-center">
+                  {leadData.esProfesional ? (
+                    <>
+                      <h3 className="text-xl font-semibold mb-3">¿Quieres recibir proyectos similares?</h3>
+                      <p className="text-slate-400 mb-6 max-w-md mx-auto">
+                        Únete a la red SPUN de profesionales verificados y conecta con comunidades que buscan empresas especializadas en rehabilitación energética.
+                      </p>
+                      <button 
+                        onClick={() => solicitarContacto('oferta_quiere_proyectos')}
+                        className="px-8 py-4 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-semibold rounded-xl transition-all shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 inline-flex items-center gap-2"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                        Quiero unirme a la red SPUN
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <h3 className="text-xl font-semibold mb-3">¿Quieres recibir ofertas de empresas verificadas?</h3>
+                      <p className="text-slate-400 mb-6 max-w-md mx-auto">
+                        SPUN puede conectarte con empresas especializadas en SATE verificadas que trabajen en tu zona, sin compromiso.
+                      </p>
+                      <button 
+                        onClick={() => solicitarContacto('demanda_quiere_ofertas')}
+                        className="px-8 py-4 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-semibold rounded-xl transition-all shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 inline-flex items-center gap-2"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        Quiero que me contacten empresas verificadas
+                      </button>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="bg-gradient-to-br from-emerald-600/20 to-emerald-500/10 border border-emerald-500/30 rounded-2xl p-6 sm:p-8 text-center">
+                  <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-semibold mb-3 text-emerald-400">¡Solicitud recibida!</h3>
+                  <p className="text-slate-400 max-w-md mx-auto">
+                    {contactType === 'oferta_quiere_proyectos' 
+                      ? 'Te contactaremos pronto para explicarte cómo funciona la red de profesionales SPUN y cómo puedes empezar a recibir proyectos.'
+                      : 'En breve te contactaremos para ponerte en contacto con empresas especializadas en SATE verificadas de tu zona.'
+                    }
+                  </p>
+                  <p className="text-slate-500 text-sm mt-4">
+                    Revisa tu email ({leadData.email}) para más información.
+                  </p>
+                </div>
+              )}
               
               {/* Nueva estimación */}
               <div className="text-center">
@@ -1176,6 +1288,7 @@ const CalculadoraSATE = () => {
                   onClick={() => {
                     setCurrentStep('form');
                     setShowResults(false);
+                    setShowContactConfirm(false);
                     setBuildingData({
                       codigoPostal: '',
                       anosConstruccion: '',
@@ -1197,6 +1310,7 @@ const CalculadoraSATE = () => {
                       horizonte: '',
                       tieneEmpresa: '',
                       esProfesional: false,
+                      aceptaPrivacidad: false,
                       nombreEmpresa: '',
                       web: '',
                       tipoEmpresa: '',
