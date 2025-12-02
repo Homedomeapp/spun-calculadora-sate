@@ -258,12 +258,61 @@ const CalculadoraSATE = () => {
   // ENVÍO DE DATOS A MAKE/ZAPIER → AIRTABLE
   // ============================================
   
+  // Mapeo de valores internos → valores Airtable
+  const MAPEO_AIRTABLE = {
+    tipoFachada: {
+      'ladrillo': 'Ladrillo',
+      'monocapa': 'Monocapa',
+      'revoco': 'Revoco',
+      'otro': 'Otro'
+    },
+    situacionEnergetica: {
+      'muy-mala': 'Muy mala',
+      'media': 'Media',
+      'aceptable': 'Aceptable'
+    },
+    anosConstruccion: {
+      'antes-1979': 'Antes 1979',
+      '1980-2006': '1980-2006',
+      '2007-2013': '2007-2013',
+      '2014-2020': '2014-2020',
+      '2021-adelante': '2021+'
+    },
+    rol: {
+      'presidente': 'Presidente',
+      'administrador': 'Administrador',
+      'gestor': 'Gestor',
+      'propietario': 'Propietario'
+    },
+    numEdificios: {
+      'solo-este': 'Solo este',
+      '2-10': 'Entre 2 y 10',
+      'mas-10': 'Más de 10'
+    },
+    horizonte: {
+      '6-meses': '6 meses',
+      '6-12-meses': '6-12 meses',
+      'explorando': 'Solo explorando'
+    },
+    tieneEmpresa: {
+      'si': 'Sí',
+      'no': 'No',
+      'comparando': 'Comparando'
+    },
+    tipoEmpresa: {
+      'instalador-sate': 'Instalador SATE',
+      'rehabilitacion-integral': 'Rehabilitación integral',
+      'arquitectura-ingenieria': 'Arquitectura Ingeniería',
+      'otro': 'Otro'
+    }
+  };
+  
   const enviarDatosLead = async () => {
     const prioridad = calcularPrioridadLead();
     setIsSubmitting(true);
     setSubmitError(null);
     
-    // Estructura de datos para el CRM
+    // Estructura de datos para el CRM (con valores mapeados para Airtable)
     const datosParaCRM = {
       // Tipo de usuario
       tipoUsuario: leadData.esProfesional ? 'OFERTA' : 'DEMANDA',
@@ -273,26 +322,26 @@ const CalculadoraSATE = () => {
       email: leadData.email,
       telefono: leadData.telefono || '',
       
-      // Segmentación
-      rol: leadData.esProfesional ? 'Profesional' : leadData.rol,
-      numEdificios: leadData.numEdificios || '',
-      horizonte: leadData.horizonte || '',
-      tieneEmpresa: leadData.tieneEmpresa || '',
+      // Segmentación (mapeada)
+      rol: leadData.esProfesional ? 'Profesional' : (MAPEO_AIRTABLE.rol[leadData.rol] || leadData.rol),
+      numEdificios: MAPEO_AIRTABLE.numEdificios[leadData.numEdificios] || leadData.numEdificios || '',
+      horizonte: MAPEO_AIRTABLE.horizonte[leadData.horizonte] || leadData.horizonte || '',
+      tieneEmpresa: MAPEO_AIRTABLE.tieneEmpresa[leadData.tieneEmpresa] || leadData.tieneEmpresa || '',
       
-      // Si es profesional
+      // Si es profesional (mapeado)
       nombreEmpresa: leadData.nombreEmpresa || '',
       web: leadData.web || '',
-      tipoEmpresa: leadData.tipoEmpresa || '',
+      tipoEmpresa: MAPEO_AIRTABLE.tipoEmpresa[leadData.tipoEmpresa] || leadData.tipoEmpresa || '',
       zonasActuacion: leadData.zonasActuacion || '',
       
-      // Datos del edificio
+      // Datos del edificio (mapeados)
       codigoPostal: buildingData.codigoPostal,
-      anosConstruccion: buildingData.anosConstruccion,
+      anosConstruccion: MAPEO_AIRTABLE.anosConstruccion[buildingData.anosConstruccion] || buildingData.anosConstruccion,
       numPlantas: parseInt(buildingData.numPlantas) || 0,
       numViviendas: parseInt(buildingData.numViviendas) || 0,
       superficieFachada: parseFloat(buildingData.superficieFachada) || 0,
-      tipoFachada: buildingData.tipoFachada,
-      situacionEnergetica: buildingData.situacionEnergetica,
+      tipoFachada: MAPEO_AIRTABLE.tipoFachada[buildingData.tipoFachada] || buildingData.tipoFachada,
+      situacionEnergetica: MAPEO_AIRTABLE.situacionEnergetica[buildingData.situacionEnergetica] || buildingData.situacionEnergetica,
       
       // Actuaciones adicionales
       combinarVentanas: buildingData.combinarVentanas,
