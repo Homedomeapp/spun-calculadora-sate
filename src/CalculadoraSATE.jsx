@@ -272,7 +272,7 @@ const CalculadoraSATE = () => {
       'aceptable': 'Aceptable'
     },
     anosConstruccion: {
-      'antes-1979': 'Antes 1979',
+      'antes-1979': 'Antes de 1979',
       '1980-2006': '1980-2006',
       '2007-2013': '2007-2013',
       '2014-2020': '2014-2020',
